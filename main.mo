@@ -11,50 +11,60 @@ actor {
         tarih: Text;
     };
 
-    public type faturalar_listesi = List.List<Fatura>;
     let FaturaData = Map.HashMap<Text, List.List<Fatura>>(0, Text.equal, Text.hash);
 
+    // Yeni Fatura Ekleme
     public func addFatura(user: Text, newFatura: Fatura): async Fatura {
         let userEntries = Option.get(FaturaData.get(user), List.nil<Fatura>());
-        let updatedEntries = List.push(newFatura, userEntries);
+        let updatedEntries = List.push<Fatura>(newFatura, userEntries);
         FaturaData.put(user, updatedEntries);
         return newFatura;
     };
 
+    // Kullanıcıya Ait Tüm Faturaları Getirme
     public func getEntries(user: Text): async ?List.List<Fatura> {
         return FaturaData.get(user);
     };
 
+    // Belirli Bir Faturayı ID ile Getirme
     public func getFaturaId(user: Text, targetId: Nat): async ?Fatura {
         let userEntries = Option.get(FaturaData.get(user), List.nil<Fatura>());
-        let result = List.find(userEntries, func(fatura: Fatura): Bool {
-            fatura.id == targetId
+        let result = List.find<Fatura>(userEntries, func(fatura: Fatura): Bool {
+            fatura.id == targetId;
         });
-        switch (result) {
-            case (?fatura) return ?fatura;
-            case (_) return null;
-        }
+        return result;
     };
 
+    // Belirli Bir Faturayı Güncelleme
     public func updateFatura(user: Text, targetId: Nat, updatedFatura: Fatura): async Bool {
         let userEntries = Option.get(FaturaData.get(user), List.nil<Fatura>());
-        let updatedEntries = List.map(userEntries, func(fatura: Fatura): Fatura {
+        let updatedEntries = List.map<Fatura, Fatura>(userEntries, func(fatura: Fatura): Fatura {
             if (fatura.id == targetId) {
                 return updatedFatura;
             } else {
                 return fatura;
-            }
+            };
         });
         FaturaData.put(user, updatedEntries);
         return true;
     };
 
+    // Belirli Bir Faturayı Silme
     public func deleteFatura(user: Text, targetId: Nat): async Bool {
         let userEntries = Option.get(FaturaData.get(user), List.nil<Fatura>());
-        let filteredEntries = List.filter(userEntries, func(fatura: Fatura): Bool {
-            fatura.id != targetId
+        let filteredEntries = List.filter<Fatura>(userEntries, func(fatura: Fatura): Bool {
+            fatura.id != targetId;
         });
         FaturaData.put(user, filteredEntries);
-        return true;
-    };
+        return true;
+    };
+
+    // Kullanıcıya Göre Toplam Fatura Tutarını Hesaplama
+    public func totalAmountForUser(user: Text): async Nat {
+        let userEntries = Option.get(FaturaData.get(user), List.nil<Fatura>());
+        return List.foldLeft<Fatura, Nat>(userEntries, 0, func(total: Nat, fatura: Fatura): Nat {
+            total + fatura.toplamTutar;
+        });
+    };
 };
+
