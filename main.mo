@@ -1,52 +1,60 @@
-import List "mo:base/List";
-import Array "mo:base/Array";
-import Nat "mo:base/Nat";
+import Map "mo:base/HashMap";
 import Text "mo:base/Text";
+import Option "mo:base/Option";
+import List "mo:base/List";
 
-
-
-
-actor  {
-
-    // Fatura veri yapısını tanımlıyoruz. Bu veri yapısının her özelliğini belirliyoruz.
+actor {
     public type Fatura = {
-        id: Nat;                     // Fatura ID'si
-        musteriAdi: Text;            // Müşteri adı
-        toplamTutar: Float;          // Fatura toplam tutarı
-        tarih: Text;                 // Fatura tarihi
+        id: Nat;
+        kullanici_adi: Text;
+        toplamTutar: Nat;
+        tarih: Text;
     };
 
-    // Faturaları saklayacak bir liste (List) değişkeni.
-    var faturaListesi: List.List<Fatura> = List.empty<Fatura>();
+    public type faturalar_listesi = List.List<Fatura>;
+    let FaturaData = Map.HashMap<Text, List.List<Fatura>>(0, Text.equal, Text.hash);
 
-    // Stable değişken tanımlaması, kalıcı veri için (genellikle blockchain üzerinde)
-    stable var blockchainFaturalar: List.List<Fatura> = List.empty<Fatura>();
-
-    // Yeni bir fatura oluşturmak için fonksiyon.
-    public func yeniFaturaOlustur(id: Nat, musteriAdi: Text, toplamTutar: Float, tarih: Text): Fatura() {
-      
-        return {
-            id = id;
-            musteriAdi = musteriAdi;
-            toplamTutar = toplamTutar;
-            tarih = tarih;
-        };
+    public func addFatura(user: Text, newFatura: Fatura): async Fatura {
+        let userEntries = Option.get(FaturaData.get(user), List.nil<Fatura>());
+        let updatedEntries = List.push(newFatura, userEntries);
+        FaturaData.put(user, updatedEntries);
+        return newFatura;
     };
 
-    // Faturayı listeye ekleyen fonksiyon.
-    public func faturaEkle(fatura: Fatura): Text {
-        faturaListesi := List.cons(fatura, faturaListesi); // Faturayı liste başına ekler.
-        return "Fatura başarıyla eklendi!";
+    public func getEntries(user: Text): async ?List.List<Fatura> {
+        return FaturaData.get(user);
     };
 
-    // Faturaları blockchain'e kaydeden fonksiyon.
-    public func faturalariKaydet(): Text {
-        blockchainFaturalar := faturaListesi; // Listede bulunan tüm faturaları blockchain'e kaydeder.
-        return "Faturalar blockchain'e kaydedildi!";
+    public func getFaturaId(user: Text, targetId: Nat): async ?Fatura {
+        let userEntries = Option.get(FaturaData.get(user), List.nil<Fatura>());
+        let result = List.find(userEntries, func(fatura: Fatura): Bool {
+            fatura.id == targetId
+        });
+        switch (result) {
+            case (?fatura) return ?fatura;
+            case (_) return null;
+        }
     };
 
-    // Blockchain üzerinde saklanan faturaları listeleyen fonksiyon.
-    public func faturalariListele(): List<Fatura> {
-        return blockchainFaturalar; // Blockchain'deki faturaları döndürür.
+    public func updateFatura(user: Text, targetId: Nat, updatedFatura: Fatura): async Bool {
+        let userEntries = Option.get(FaturaData.get(user), List.nil<Fatura>());
+        let updatedEntries = List.map(userEntries, func(fatura: Fatura): Fatura {
+            if (fatura.id == targetId) {
+                return updatedFatura;
+            } else {
+                return fatura;
+            }
+        });
+        FaturaData.put(user, updatedEntries);
+        return true;
     };
+
+    public func deleteFatura(user: Text, targetId: Nat): async Bool {
+        let userEntries = Option.get(FaturaData.get(user), List.nil<Fatura>());
+        let filteredEntries = List.filter(userEntries, func(fatura: Fatura): Bool {
+            fatura.id != targetId
+        });
+        FaturaData.put(user, filteredEntries);
+        return true;
+    };
 };
